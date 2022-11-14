@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+
+project(visualisierung LANGUAGES CXX CUDA)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CUDA_STANDARD 17)
+
+include_directories(include)
+include_directories(vendor/imgui)
+
+add_library(imgui STATIC
+    vendor/imgui/imgui.h
+    vendor/imgui/imgui.cpp
+    vendor/imgui/imgui_draw.cpp
+    vendor/imgui/imgui_tables.cpp
+    vendor/imgui/imgui_widgets.cpp
+    vendor/imgui/imgui_demo.cpp
+    vendor/imgui/imgui_impl_xlib.h
+    vendor/imgui/imgui_impl_xlib.cpp
+    vendor/imgui/imgui_impl_opengl2.h
+    vendor/imgui/imgui_impl_opengl2.cpp
+)
+
+add_executable(visualisierung src/main.cu)
+
+set_target_properties(visualisierung PROPERTIES CUDA_ARCHITECTURES native)
+
+target_link_libraries(visualisierung PRIVATE imgui X11 GL)
