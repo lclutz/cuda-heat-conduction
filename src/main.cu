@@ -89,10 +89,11 @@ color_kernel(
 
 int main(int argc, char *argv[])
 {
-    ApplicationState app_state = {};
-    app_state.alpha            = 0.5f;
-    app_state.lighter_temp     = 1.0f;
-    app_state.speed_multiplier = 1;
+    ApplicationState app_state     = {};
+    app_state.alpha                = 0.5f;
+    app_state.lighter_temp         = 1.0f;
+    app_state.speed_multiplier     = 1;
+    app_state.show_settings_window = true;
 
     app_state.host_pixel_buffer = static_cast<uint32_t *>(malloc(WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t)));
     memset(app_state.host_pixel_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
