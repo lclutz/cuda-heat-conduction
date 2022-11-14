@@ -7,6 +7,7 @@
 #include <GL/gl.h>
 #include <GL/glx.h>
 
+#define IMGUI_DISABLE_SSE
 #include "imgui.h"
 #include "imgui_impl_xlib.h"
 #include "imgui_impl_opengl2.h"
