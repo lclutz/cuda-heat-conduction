@@ -88,6 +88,17 @@ color_kernel(
     }
 }
 
+bool check_last_cuda_error()
+{
+    cudaError_t err{cudaGetLastError()};
+    if (err != cudaSuccess)
+    {
+        loge("CUDA Runtime Error: %s", cudaGetErrorString(err));
+        return false;
+    }
+    return true;
+}
+
 int main(int argc, char *argv[])
 {
     ApplicationState app_state     = {};
@@ -101,14 +112,17 @@ int main(int argc, char *argv[])
     defer(free(app_state.host_pixel_buffer));
 
     cudaMalloc(&app_state.device_pixel_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
+    if (!check_last_cuda_error()) { return 1; }
     cudaMemset(app_state.device_pixel_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
     defer(cudaFree(app_state.device_pixel_buffer));
 
     cudaMalloc(&app_state.primary_temp_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
+    if (!check_last_cuda_error()) { return 1; }
     cudaMemset(app_state.primary_temp_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
     defer(cudaFree(app_state.primary_temp_buffer));
 
     cudaMalloc(&app_state.secondary_temp_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
+    if (!check_last_cuda_error()) { return 1; }
     cudaMemset(app_state.secondary_temp_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
     defer(cudaFree(app_state.secondary_temp_buffer));
     cudaDeviceSynchronize();
