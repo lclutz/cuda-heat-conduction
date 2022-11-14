@@ -27,7 +27,7 @@ Bestandteile:
 
 ### SSH Konfiguration
 
-`$HOME/.ssh/config` bzw. `%USERPROFILE%\.ssh\config%` für Windows:
+`$HOME/.ssh/config` bzw. `%USERPROFILE%\.ssh\config` für Windows:
 
 ```
 Host hska
