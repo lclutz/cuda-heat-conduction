@@ -13,8 +13,9 @@ Demo im Rahmen der Vorlesung _Parallele Systeme_ an der
 ## Kompilieren
 
 ```Shell
-./build.sh             # Kompiliere das Programm
-./build/visualisierung # Programm ausführen
+mkdir build && cd build # Build-Verzeichnis erstellen
+cmake ..                # Build Dateien erzeugen
+cmake --build .         # Programm bauen
 ```
 
 ## Setup
