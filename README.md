@@ -33,7 +33,6 @@ Bestandteile:
 ```
 Host hska
     HostName login.hs-karlsruhe.de
-    IdentityFile ~/.ssh/id_rsa
     HostkeyAlgorithms ssh-rsa,ssh-dss
     StrictHostKeyChecking no
 
