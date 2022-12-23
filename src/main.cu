@@ -58,7 +58,6 @@ heat_conduction_kernel(
 		// update temperature
         temp_out[idx] = temp_in[idx] + alphaTimesDt * (d2tdx2 + d2tdy2);
 	}
-
 }
 
 __global__ void
