@@ -1,6 +1,7 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdint.h>
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <thread>
 
 #include <X11/Xlib.h>
 
@@ -16,26 +17,21 @@
 #include "imgui_draw.cpp"
 #include "imgui_tables.cpp"
 #include "imgui_widgets.cpp"
-#include "imgui_demo.cpp"
 #include "imgui_impl_xlib.cpp"
 #include "imgui_impl_opengl2.cpp"
 
 #include "defer.h"
 #include "state.h"
-#include "time_utils.h"
 #include "logging.h"
 
-constexpr float TARGET_SECONDS_PER_FRAME = 1.0f/20.0f;
-constexpr int   WINDOW_WIDTH             = 800;
-constexpr int   WINDOW_HEIGHT            = 600;
+// Note: We are controlling the frame rate of the application to make it behave
+//       nicely if run locally. Because we mostly run it over the network the
+//       frame rates we are actually getting are much lower than this.
+constexpr float TARGET_FPS        = 60.0f;
+constexpr auto  TARGET_FRAME_TIME = std::chrono::duration<float>(1.0f/TARGET_FPS);
 
-template <typename T>
-void swap(T &a, T &b)
-{
-    T tmp = a;
-    a = b;
-    b = tmp;
-}
+constexpr int   WINDOW_WIDTH  = 800;
+constexpr int   WINDOW_HEIGHT = 600;
 
 __global__ void
 heat_conduction_kernel(
@@ -107,45 +103,50 @@ int main(int argc, char *argv[])
     app_state.speed_multiplier     = 1;
     app_state.show_settings_window = true;
 
-    app_state.host_pixel_buffer = static_cast<uint32_t *>(malloc(WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t)));
-    memset(app_state.host_pixel_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
-    defer(free(app_state.host_pixel_buffer));
-
-    cudaMalloc(&app_state.device_pixel_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
-    if (!check_last_cuda_error()) { return 1; }
-    cudaMemset(app_state.device_pixel_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
-    defer(cudaFree(app_state.device_pixel_buffer));
-
-    cudaMalloc(&app_state.primary_temp_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
-    if (!check_last_cuda_error()) { return 1; }
-    cudaMemset(app_state.primary_temp_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
-    defer(cudaFree(app_state.primary_temp_buffer));
-
-    cudaMalloc(&app_state.secondary_temp_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
-    if (!check_last_cuda_error()) { return 1; }
-    cudaMemset(app_state.secondary_temp_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
-    defer(cudaFree(app_state.secondary_temp_buffer));
-    cudaDeviceSynchronize();
-
-    if (!app_state.host_pixel_buffer
-        || !app_state.device_pixel_buffer
-        || !app_state.primary_temp_buffer
-        || !app_state.secondary_temp_buffer) {
-        loge("Failed to allocate buffers");
+    app_state.host_pixel_buffer = new uint32_t[WINDOW_WIDTH*WINDOW_HEIGHT];
+    if (!app_state.host_pixel_buffer) {
+        loge("Failed to allocate the host pixel buffer");
         return 1;
     }
+    memset(app_state.host_pixel_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
+    defer { delete[] app_state.host_pixel_buffer; };
+
+    cudaMalloc(&app_state.device_pixel_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
+    if (!check_last_cuda_error() || !app_state.device_pixel_buffer) {
+        loge("Failed to allocate device pixel buffer");
+        return 1;
+    }
+    cudaMemset(app_state.device_pixel_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(uint32_t));
+    defer { cudaFree(app_state.device_pixel_buffer); };
+
+    cudaMalloc(&app_state.primary_temp_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
+    if (!check_last_cuda_error() || !app_state.primary_temp_buffer) {
+        loge("Failed to allocate primary temperature buffer");
+        return 1;
+    }
+    cudaMemset(app_state.primary_temp_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
+    defer { cudaFree(app_state.primary_temp_buffer); };
+
+    cudaMalloc(&app_state.secondary_temp_buffer, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
+    if (!check_last_cuda_error() || !app_state.secondary_temp_buffer) {
+        loge("Failed to allocate secondary temperature buffer");
+        return 1;
+    }
+    cudaMemset(app_state.secondary_temp_buffer, 0, WINDOW_WIDTH*WINDOW_HEIGHT*sizeof(float));
+    defer { cudaFree(app_state.secondary_temp_buffer); };
+    cudaDeviceSynchronize();
 
     Display *display = XOpenDisplay(0);
     if (!display) {
         loge("Failed to open display");
         return 1;
     }
-    defer(XCloseDisplay(display));
+    defer { XCloseDisplay(display); };
 
     Window window = XCreateSimpleWindow(
         display, XDefaultRootWindow(display), 0, 0,
         WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, 0);
-    defer(XDestroyWindow(display, window));
+    defer { XDestroyWindow(display, window); };
 
     Atom wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", false);
     XSetWMProtocols(display, window, &wm_delete_window, 1);
@@ -157,13 +158,13 @@ int main(int argc, char *argv[])
         gl_context = glXCreateContext(display, visual_info, NULL, GL_TRUE);
     }
     if (!gl_context) {
-        loge("Failed to create OpenGL2 context");
+        loge("Failed to create OpenGL context");
         return 1;
     }
-    defer(glXDestroyContext(display, gl_context));
+    defer { glXDestroyContext(display, gl_context); };
 
     if (!glXMakeCurrent(display, window, gl_context)) {
-        loge("Failed to attach the OpenGL2 context to the window");
+        loge("Failed to attach the OpenGL context to the window");
         return 1;
     }
 
@@ -189,19 +190,19 @@ int main(int argc, char *argv[])
         loge("Failed to create ImGui context");
         return 1;
     }
-    defer(ImGui::DestroyContext());
+    defer { ImGui::DestroyContext(); };
 
     if (!ImGui_ImplXlib_InitForOpenGL(display, window, gl_context)) {
         loge("Failed to initialize ImGui for Xlib");
         return 1;
     }
-    defer(ImGui_ImplXlib_Shutdown);
+    defer { ImGui_ImplXlib_Shutdown(); };
 
     if (!ImGui_ImplOpenGL2_Init()) {
         loge("Failed to initialize ImGui for OpenGL2");
         return 1;
     }
-    defer(ImGui_ImplOpenGL2_Shutdown());
+    defer { ImGui_ImplOpenGL2_Shutdown(); };
 
     ImGui::StyleColorsDark();
     ImGuiIO &io = ImGui::GetIO();
@@ -212,12 +213,14 @@ int main(int argc, char *argv[])
         loge("Failed to read device properties");
         return 1;
     }
-    logi("GPU:          %s", device_properties.name);
+    logi("GPU Name: %s", device_properties.name);
+    logi("Max. threads per block: %d", device_properties.maxThreadsPerBlock);
+
     app_state.threads_per_block = device_properties.maxThreadsPerBlock;
     app_state.number_of_blocks = static_cast<int>(ceilf(static_cast<float>(WINDOW_HEIGHT*WINDOW_WIDTH)/app_state.threads_per_block));
 
-    timespec begin_frame_time = get_wall_clock();
-    timespec simulation_timer = get_wall_clock();
+    auto begin_frame_time = std::chrono::high_resolution_clock::now();
+    auto simulation_timer = std::chrono::high_resolution_clock::now();
 
     while (!app_state.should_close) {
         while (XPending(display) > 0) {
@@ -266,8 +269,8 @@ int main(int argc, char *argv[])
         }
 
         {
-            timespec now = get_wall_clock();
-            float dt = get_seconds_elapsed(simulation_timer, now);
+            auto now = std::chrono::high_resolution_clock::now();
+            float dt = std::chrono::duration<float>(now - simulation_timer).count();
             simulation_timer = now;
 
             if (!app_state.simulation_paused) {
@@ -276,7 +279,7 @@ int main(int argc, char *argv[])
                         WINDOW_WIDTH, WINDOW_HEIGHT, app_state.alpha * dt,
                         app_state.primary_temp_buffer, app_state.secondary_temp_buffer);
                     cudaDeviceSynchronize();
-                    swap(app_state.primary_temp_buffer, app_state.secondary_temp_buffer);
+                    std::swap(app_state.primary_temp_buffer, app_state.secondary_temp_buffer);
                 }
             }
 
@@ -362,16 +365,15 @@ int main(int argc, char *argv[])
         }
 
         // Enforce frame rate
-        float frame_seconds_elapsed = get_seconds_elapsed(begin_frame_time, get_wall_clock());
-        if (frame_seconds_elapsed < TARGET_SECONDS_PER_FRAME) {
-            useconds_t sleep_us = static_cast<useconds_t>(1.0e6f * (TARGET_SECONDS_PER_FRAME - frame_seconds_elapsed));
-            usleep(sleep_us);
-            while (frame_seconds_elapsed < TARGET_SECONDS_PER_FRAME) {
-                frame_seconds_elapsed = get_seconds_elapsed(begin_frame_time, get_wall_clock());
+        auto frame_time_elapsed = std::chrono::high_resolution_clock::now() - begin_frame_time;
+        if (frame_time_elapsed < TARGET_FRAME_TIME) {
+            std::this_thread::sleep_for(TARGET_FRAME_TIME - frame_time_elapsed);
+            while (frame_time_elapsed < TARGET_FRAME_TIME) {
+                frame_time_elapsed = std::chrono::high_resolution_clock::now() - begin_frame_time;
             }
         }
-        app_state.fps = 1.0f / frame_seconds_elapsed;
-        begin_frame_time = get_wall_clock();
+        app_state.fps = 1.0f / std::chrono::duration<float>(frame_time_elapsed).count();
+        begin_frame_time = std::chrono::high_resolution_clock::now();
     }
 
     return 0;

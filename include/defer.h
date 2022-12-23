@@ -1,16 +1,31 @@
 #pragma once
 
-// Use defer(someFunction()); to queue up cleanup functions to be run at the
-// end of the scope
+#include <utility>
+
+// Note:
+// Use defer { someFunction(); }; to queue up cleanup functions to be run at the
+// end of the current scope
 
 template <typename F>
-struct Defer
-{
-    Defer(F f) : f(f) {}
-    ~Defer() { f(); }
+struct Defer {
+    Defer( F f ) : f( f ) {}
+    ~Defer( ) { f( ); }
     F f;
 };
 
-#define CONCAT0(a, b) a##b
-#define CONCAT(a, b) CONCAT0(a, b)
-#define defer(body) Defer CONCAT(defer, __LINE__)([&]() { body; })
+template <typename F>
+Defer<F> makeDefer( F f ) {
+    return Defer<F>( f );
+};
+
+#define __defer( line ) defer_ ## line
+#define _defer( line ) __defer( line )
+
+struct defer_dummy { };
+template<typename F>
+Defer<F> operator+( defer_dummy, F&& f )
+{
+    return makeDefer<F>( std::forward<F>( f ) );
+}
+
+#define defer auto _defer( __LINE__ ) = defer_dummy( ) + [ & ]( )

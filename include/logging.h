@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-static void prefix_println(const char *prefix, const char *fmt, ...)
+static void prefixed_println(const char *prefix, const char *fmt, ...)
 {
     fprintf(stderr, "%s", prefix);
     va_list args;
@@ -12,6 +12,6 @@ static void prefix_println(const char *prefix, const char *fmt, ...)
     fprintf(stderr, "\n");
 }
 
-#define logi(...)  prefix_println("INFO: ",  __VA_ARGS__)
-#define logw(...)  prefix_println("WARN: ",  __VA_ARGS__)
-#define loge(...)  prefix_println("ERROR: ", __VA_ARGS__)
+#define logi(...)  prefixed_println("INFO: ",  __VA_ARGS__)
+#define logw(...)  prefixed_println("WARN: ",  __VA_ARGS__)
+#define loge(...)  prefixed_println("ERROR: ", __VA_ARGS__)

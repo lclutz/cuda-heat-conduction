@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <GL/gl.h>
 
@@ -22,6 +22,6 @@ struct ApplicationState
 
     // Stats
     float fps;
-    int threads_per_block;
-    int number_of_blocks;
+    int   threads_per_block;
+    int   number_of_blocks;
 };
