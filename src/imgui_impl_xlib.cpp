@@ -1,32 +1,21 @@
-#include <time.h>
+#include <chrono>
 
 #include "imgui.h"
 #include "imgui_impl_xlib.h"
 
-timespec _get_wall_clock() {
-    timespec result;
-    clock_gettime(CLOCK_MONOTONIC, &result);
-    return result;
-}
-
-float _get_seconds_elapsed(timespec start, timespec end) {
-    float delta_seconds = (float) (end.tv_sec - start.tv_sec);
-    float delta_nanoseconds = (float) (end.tv_nsec - start.tv_nsec);
-    return delta_seconds + delta_nanoseconds * 1.0e-9f;
-}
-
 // Xlib Data
 struct ImGui_ImplXlib_Data
 {
-    Display*        display;
-    Window          window;
-    timespec        Time;
-    int             MouseButtonsDown;
-    int             PendingMouseLeaveFrame;
-    char*           ClipboardTextData;
-    bool            MouseCanUseGlobalState;
+    Display* display;
+    Window   window;
+    int      MouseButtonsDown;
+    int      PendingMouseLeaveFrame;
+    char*    ClipboardTextData;
+    bool     MouseCanUseGlobalState;
 
-    ImGui_ImplXlib_Data()   { memset((void*)this, 0, sizeof(*this)); }
+    std::chrono::time_point<std::chrono::high_resolution_clock> Time;
+
+    ImGui_ImplXlib_Data() { memset((void*)this, 0, sizeof(*this)); }
 };
 
 static ImGui_ImplXlib_Data* ImGui_ImplXlib_GetBackendData()
@@ -217,7 +206,7 @@ static bool ImGui_ImplXlib_Init(Display *display, Window window)
 
     bd->display = display;
     bd->window = window;
-    bd->Time = _get_wall_clock();
+    bd->Time = std::chrono::high_resolution_clock::now();
 
     io.SetClipboardTextFn = ImGui_ImplXlib_SetClipboardText;
     io.GetClipboardTextFn = ImGui_ImplXlib_GetClipboardText;
@@ -274,8 +263,8 @@ void ImGui_ImplXlib_NewFrame()
     if (w > 0 && h > 0)
         io.DisplayFramebufferScale = ImVec2((float)display_w / w, (float)display_h / h);
 
-    timespec current_time = _get_wall_clock();
-    io.DeltaTime = _get_seconds_elapsed(bd->Time, current_time);
+    auto current_time = std::chrono::high_resolution_clock::now();
+    io.DeltaTime = std::chrono::duration<float>(current_time - bd->Time).count();
     bd->Time = current_time;
 
     if (bd->PendingMouseLeaveFrame && bd->PendingMouseLeaveFrame >= ImGui::GetFrameCount() && bd->MouseButtonsDown == 0)
