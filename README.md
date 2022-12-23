@@ -25,6 +25,8 @@ Bestandteile:
 - SSH mit X-Forwarding
 - [VcXsrv](https://sourceforge.net/projects/vcxsrv/) als X-Server für Windows
     - Die Einstellungen die ich verwende: [VcXsrv.xlaunch](VcXsrv.xlaunch)
+ - Weil wir einen X-Client schreiben muss auf dem Server mindestens
+   `libx11-dev` installiert sein
 
 ### SSH Konfiguration
 
